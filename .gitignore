@@ -1,0 +1,38 @@
+# --- 1. PYTHON (AI Engine) ---
+# Ignore the Virtual Environment (Huge folder)
+AI_Engine_Python/venv/
+AI_Engine_Python/.venv/
+
+# Ignore compiled python files (Junk)
+__pycache__/
+*.pyc
+
+# ⚠️ SECURITY: Ignore the Master Key! ⚠️
+AI_Engine_Python/serviceAccountKey.json
+
+
+# --- 2. REACT (Web Dashboard) ---
+# Ignore Node Dependencies (Huge folder, downloadable via npm install)
+Web_Dashboard_React/node_modules/
+
+# Ignore Build Outputs
+Web_Dashboard_React/dist/
+Web_Dashboard_React/build/
+
+# Ignore Environment Logs
+Web_Dashboard_React/.env
+Web_Dashboard_React/.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+
+# --- 3. ESP32 (Firmware) ---
+# ⚠️ SECURITY: Ignore your WiFi & Database Passwords! ⚠️
+Firmware_ESP32/secrets.h
+
+
+# --- 4. SYSTEM JUNK ---
+.DS_Store
+Thumbs.db
+.vscode/
