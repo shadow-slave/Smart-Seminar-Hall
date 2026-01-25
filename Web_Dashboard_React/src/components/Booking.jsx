@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { database } from "../firebase"; // Note the "../" to go back one folder
-import { ref, onValue, push, remove } from "firebase/database";
+import { database } from "../firebase";
+import { ref, onValue, push, remove, update } from "firebase/database"; // ✅ Added 'update'
 import {
   Grid,
   Paper,
@@ -25,7 +25,7 @@ const Bookings = () => {
   const [bookingTime, setBookingTime] = useState("");
   const [allBookings, setAllBookings] = useState({});
 
-  // Listen for bookings specific to this page
+  // Listen for bookings list
   useEffect(() => {
     const bookingsRef = ref(database, "seminar_hall/all_bookings");
     const unsubscribe = onValue(bookingsRef, (snapshot) => {
@@ -36,18 +36,36 @@ const Bookings = () => {
 
   const handleAddBooking = () => {
     if (!bookingTime) return alert("Please select a date and time");
-    const meetingDate = new Date(bookingTime);
-    const acStartDate = new Date(meetingDate.getTime() - 30 * 60000);
-    const triggerTimestamp = Math.floor(acStartDate.getTime() / 1000);
 
+    // 1. Calculate Timestamps
+    const startDate = new Date(bookingTime);
+    const startTimestamp = startDate.getTime(); // Milliseconds
+
+    // Default meeting duration: 2 Hours
+    const endDate = new Date(startTimestamp + 2 * 60 * 60 * 1000);
+    const endTimestamp = endDate.getTime();
+
+    // AC Start Time (30 mins before)
+    const acStartDate = new Date(startTimestamp - 30 * 60000);
+
+    // 2. Add to the "List" (For the Table)
     push(ref(database, "seminar_hall/all_bookings"), {
-      display_time: meetingDate.toLocaleString(),
-      trigger_time: triggerTimestamp,
+      display_time: startDate.toLocaleString(),
+      start_time: startTimestamp,
+      end_time: endTimestamp,
       raw_date: bookingTime,
     });
 
+    // 3. Update "Live Data" (For the ESP32)
+    // This tells the ESP32 specifically when the next meeting is
+    update(ref(database, "seminar_hall/live_data"), {
+      booking_start: startTimestamp,
+      booking_end: endTimestamp,
+      booking_active: true, // Explicit flag
+    });
+
     setBookingTime("");
-    alert("Booking Added Successfully");
+    alert("Booking Added & Synced with ESP32!");
   };
 
   const handleDeleteBooking = (id) => {
@@ -68,7 +86,9 @@ const Bookings = () => {
             severity="info"
             sx={{ mb: 3, bgcolor: "rgba(56, 189, 248, 0.1)" }}
           >
-            AC auto-start: 30 mins prior
+            AC auto-starts 30 mins prior.
+            <br />
+            <strong>Default Duration: 2 Hours</strong>
           </Alert>
 
           <TextField
@@ -101,11 +121,9 @@ const Bookings = () => {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ color: "text.secondary" }}>
-                  EVENT TIME
+                  START TIME
                 </TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>
-                  AC TRIGGER
-                </TableCell>
+                <TableCell sx={{ color: "text.secondary" }}>END TIME</TableCell>
                 <TableCell align="right" sx={{ color: "text.secondary" }}>
                   ACTION
                 </TableCell>
@@ -136,10 +154,10 @@ const Bookings = () => {
                       {booking.display_time}
                     </TableCell>
                     <TableCell sx={{ color: "primary.main" }}>
-                      {new Date(booking.trigger_time * 1000).toLocaleTimeString(
-                        [],
-                        { hour: "2-digit", minute: "2-digit" },
-                      )}
+                      {new Date(booking.end_time).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </TableCell>
                     <TableCell align="right">
                       <IconButton

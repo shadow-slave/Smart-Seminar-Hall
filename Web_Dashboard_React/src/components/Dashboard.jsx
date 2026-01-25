@@ -1,12 +1,23 @@
 import React from "react";
+import { database } from "../firebase"; // ✅ Added Firebase Import
+import { ref, update } from "firebase/database"; // ✅ Added Update Tools
 import { Grid, Paper, Typography, Box, Chip, Switch } from "@mui/material";
 import {
   People as PeopleIcon,
   Thermostat as ThermostatIcon,
 } from "@mui/icons-material";
 
-// We pass 'data' as a PROP because App.jsx still fetches the live sensor data
 const Dashboard = ({ data }) => {
+  // ✅ New Function: Handle the Switch Click
+  const handleACToggle = () => {
+    const newStatus = !data.ac_status;
+
+    // Send the new status to Firebase
+    update(ref(database, "seminar_hall/live_data"), {
+      ac_status: newStatus,
+    });
+  };
+
   return (
     <Grid container spacing={3}>
       {/* Occupancy Card */}
@@ -108,7 +119,13 @@ const Dashboard = ({ data }) => {
             >
               {data.ac_status ? "ON" : "OFF"}
             </Typography>
-            <Switch checked={Boolean(data.ac_status)} color="success" />
+
+            {/* ✅ Added onChange to the Switch */}
+            <Switch
+              checked={Boolean(data.ac_status)}
+              onChange={handleACToggle}
+              color="success"
+            />
           </Box>
         </Paper>
       </Grid>
