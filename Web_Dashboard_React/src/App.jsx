@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { database } from "./firebase";
-import { ref, onValue, update } from "firebase/database";
+import { ref, onValue } from "firebase/database";
 import {
   Box,
   CssBaseline,
@@ -14,7 +14,7 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 
 // --- IMPORTS ---
-import { darkTheme } from "./theme"; // Imported Theme
+import theme from "./theme"; // ✅ FIXED: Import default theme
 import Sidebar from "./components/Sidebar.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import Bookings from "./components/Booking.jsx";
@@ -25,6 +25,8 @@ function App() {
   // --- STATE ---
   const [currentView, setCurrentView] = useState("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // This state holds the LIVE data from ESP32
   const [data, setData] = useState({
     person_count: 0,
     temperature: 0,
@@ -32,51 +34,26 @@ function App() {
     ac_status: false,
   });
 
-  // --- FIREBASE LOGIC (The "Brain") ---
+  // --- FIREBASE CONNECTION ---
   useEffect(() => {
-    // 1. Live Sensor Data
+    // We only need to listen to ONE thing: The Live Data
+    // The ESP32 writes temperature/occupancy here.
+    // The Booking Page writes booking info here.
     const sensorRef = ref(database, "seminar_hall/live_data");
-    onValue(sensorRef, (snapshot) => {
-      if (snapshot.exists())
+
+    const unsubscribe = onValue(sensorRef, (snapshot) => {
+      if (snapshot.exists()) {
         setData((prev) => ({ ...prev, ...snapshot.val() }));
-    });
-
-    // 2. Booking Sync Logic
-    const bookingsRef = ref(database, "seminar_hall/all_bookings");
-    onValue(bookingsRef, (snapshot) => {
-      syncNearestBookingToESP(snapshot.val() || {});
-    });
-  }, []);
-
-  // Helper: Find next booking and tell ESP32
-  const syncNearestBookingToESP = (bookingsList) => {
-    const now = Math.floor(Date.now() / 1000);
-    let nearestSlot = null;
-    let minDiff = Infinity;
-
-    Object.values(bookingsList).forEach((booking) => {
-      if (booking.trigger_time > now) {
-        const diff = booking.trigger_time - now;
-        if (diff < minDiff) {
-          minDiff = diff;
-          nearestSlot = booking;
-        }
       }
     });
 
-    const espRef = ref(database, "seminar_hall/booking");
-    if (nearestSlot) {
-      update(espRef, {
-        trigger_time: nearestSlot.trigger_time,
-        display_time: nearestSlot.display_time,
-      });
-    } else {
-      update(espRef, { trigger_time: 0, display_time: "No Upcoming Slots" });
-    }
-  };
+    return () => unsubscribe();
+  }, []);
 
   return (
-    <ThemeProvider theme={darkTheme}>
+    <ThemeProvider theme={theme}>
+      {" "}
+      {/* ✅ Uses the new Cyber-Dark theme */}
       <Box
         sx={{
           display: "flex",
@@ -84,17 +61,17 @@ function App() {
           bgcolor: "background.default",
         }}
       >
-        <CssBaseline />
-
+        <CssBaseline /> {/* ✅ Paints the full background dark */}
         {/* TOP NAVBAR */}
         <AppBar
           position="fixed"
           sx={{
             width: { sm: `calc(100% - ${drawerWidth}px)` },
             ml: { sm: `${drawerWidth}px` },
-            bgcolor: "background.default",
+            bgcolor: "rgba(15, 23, 42, 0.8)", // Semi-transparent dark
+            backdropFilter: "blur(8px)", // Blur effect
             boxShadow: "none",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
           }}
         >
           <Toolbar>
@@ -107,7 +84,7 @@ function App() {
               <MenuIcon />
             </IconButton>
             <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h6" color="text.primary">
+              <Typography variant="h6" color="text.primary" fontWeight="bold">
                 {currentView === "dashboard"
                   ? "Seminar Hall 401"
                   : "Schedule Manager"}
@@ -115,7 +92,6 @@ function App() {
             </Box>
           </Toolbar>
         </AppBar>
-
         {/* SIDEBAR NAVIGATION */}
         <Sidebar
           mobileOpen={mobileOpen}
@@ -123,7 +99,6 @@ function App() {
           currentView={currentView}
           setCurrentView={setCurrentView}
         />
-
         {/* MAIN PAGE CONTENT */}
         <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 8 }}>
           <Container maxWidth="xl">
