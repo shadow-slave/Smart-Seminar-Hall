@@ -10,9 +10,9 @@ const firebaseConfig = {
     "",
   projectId: "smart-seminar-hall",
   storageBucket: "smart-seminar-hall.firebasestorage.app",
-  messagingSenderId: "",
-  appId: "1::web:d0614bc3d1bdea1595d170",
-  measurementId: "G-",
+  messagingSenderId: "470565346129",
+  appId: "",
+  measurementId: "",
 };
 
 // Initialize Firebase
