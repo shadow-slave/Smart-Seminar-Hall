@@ -19,6 +19,7 @@ import {
   Card,
   CardContent,
   Stack,
+  Fade,
 } from "@mui/material";
 import {
   AddCircle as AddIcon,
@@ -27,6 +28,15 @@ import {
   AcUnit as AcIcon,
   Schedule as TimeIcon,
 } from "@mui/icons-material";
+
+// --- GLASS STYLE ---
+const glassStyle = {
+  background: "rgba(30, 41, 59, 0.4)", // Semi-transparent Dark Blue
+  backdropFilter: "blur(12px)", // Blur Effect
+  border: "1px solid rgba(255, 255, 255, 0.08)",
+  borderRadius: 4,
+  boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.2)",
+};
 
 const Bookings = () => {
   const [bookingTime, setBookingTime] = useState("");
@@ -43,29 +53,42 @@ const Bookings = () => {
 
   const handleAddBooking = () => {
     if (!bookingTime) return alert("Please select a date and time");
+    //if bookingTime is in the past
+    const now = new Date();
+    if (new Date(bookingTime) <= now)
+      return alert("Please select a future date and time");
+    //if bookingTime overlaps with existing booking
+    for (const booking of Object.values(allBookings)) {
+      const existingStart = booking.start_time;
+      const existingEnd = booking.end_time;
+      const newStart = new Date(bookingTime).getTime();
+      const newEnd = newStart + 2 * 60 * 60 * 1000; // 2 hours duration
+      if (
+        (newStart >= existingStart && newStart < existingEnd) ||
+        (newEnd > existingStart && newEnd <= existingEnd) ||
+        (newStart <= existingStart && newEnd >= existingEnd)
+      ) {
+        return alert(
+          "This time slot overlaps with an existing booking. Please choose a different time.",
+        );
+      }
+    }
 
-    // 1. Calculate Timestamps
+    // All good, push the booking
     const startDate = new Date(bookingTime);
     const startTimestamp = startDate.getTime();
-
-    // Default meeting duration: 2 Hours
     const endDate = new Date(startTimestamp + 2 * 60 * 60 * 1000);
     const endTimestamp = endDate.getTime();
-
-    // AC Start Time (30 mins before)
     const acStartDate = new Date(startTimestamp - 30 * 60000);
 
-    // 2. Add to List (Visual Table)
     push(ref(database, "seminar_hall/all_bookings"), {
       start_time: startTimestamp,
       end_time: endTimestamp,
-      ac_start_time: acStartDate.getTime(), // Saved for display
+      ac_start_time: acStartDate.getTime(),
       display_time: startDate.toLocaleString(),
     });
 
-    // 3. Update Live Data (The ESP32 Trigger)
     update(ref(database, "seminar_hall/live_data"), {
-      // ✅ FIX: Send the AC Start Time, NOT the Meeting Start Time
       booking_start: acStartDate.getTime(),
       booking_end: endTimestamp,
       booking_active: true,
@@ -77,10 +100,7 @@ const Bookings = () => {
 
   const handleDeleteBooking = (id) => {
     if (window.confirm("Are you sure you want to cancel this seminar?")) {
-      // 1. Remove from List
       remove(ref(database, `seminar_hall/all_bookings/${id}`));
-
-      // 2. Reset Live Data (Stop AC immediately)
       update(ref(database, "seminar_hall/live_data"), {
         booking_active: false,
         booking_start: 0,
@@ -89,7 +109,6 @@ const Bookings = () => {
     }
   };
 
-  // Helper to format dates nicely
   const formatDate = (timestamp) => {
     return new Date(timestamp).toLocaleDateString("en-US", {
       month: "short",
@@ -105,204 +124,257 @@ const Bookings = () => {
   };
 
   return (
-    <Grid container spacing={3}>
-      {/* LEFT: BOOKING FORM */}
-      <Grid item xs={12} md={4}>
-        <Card sx={{ borderRadius: 4, boxShadow: 3 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-              <EventIcon color="primary" fontSize="large" />
-              <Typography variant="h5" fontWeight="bold">
-                New Session
-              </Typography>
-            </Stack>
-
-            <Typography variant="body2" color="text.secondary" mb={3}>
-              Schedule a seminar below. The system will automatically prepare
-              the room.
-            </Typography>
-
-            {/* Dark Mode Friendly Info Box */}
-            <Paper
-              variant="outlined"
+    <Fade in={true} timeout={1000}>
+      <Grid container spacing={3}>
+        {/* --- LEFT: BOOKING FORM --- */}
+        <Grid item xs={12} md={4}>
+          <Card
+            sx={{ ...glassStyle, position: "relative", overflow: "hidden" }}
+          >
+            {/* Decorative Glow */}
+            <Box
               sx={{
-                p: 2,
-                mb: 3,
-                bgcolor: "rgba(14, 165, 233, 0.1)", // Subtle Blue Tint
-                borderColor: "rgba(14, 165, 233, 0.3)", // Darker Blue Border
-                borderRadius: 2,
+                position: "absolute",
+                top: -30,
+                right: -30,
+                width: 120,
+                height: 120,
+                background: "#8b5cf6",
+                opacity: 0.2,
+                borderRadius: "50%",
+                filter: "blur(30px)",
               }}
-            >
-              <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-                <AcIcon color="info" fontSize="small" />
-                <Typography
-                  variant="subtitle2"
-                  color="info.main"
-                  fontWeight="bold"
-                >
-                  Automated Cooling
-                </Typography>
-              </Stack>
-              <Typography variant="caption" color="text.secondary">
-                The AC will turn ON exactly <strong>30 minutes</strong> before
-                your selected time.
-              </Typography>
-            </Paper>
-
-            <TextField
-              fullWidth
-              type="datetime-local"
-              label="Meeting Start Time"
-              InputLabelProps={{ shrink: true }}
-              value={bookingTime}
-              onChange={(e) => setBookingTime(e.target.value)}
-              sx={{ mb: 3 }}
             />
 
-            <Button
-              fullWidth
-              variant="contained"
-              size="large"
-              startIcon={<AddIcon />}
-              onClick={handleAddBooking}
-              disabled={!bookingTime}
-              sx={{ borderRadius: 3, py: 1.5, fontWeight: "bold" }}
-            >
-              Confirm Schedule
-            </Button>
-          </CardContent>
-        </Card>
-      </Grid>
+            <CardContent sx={{ p: 4 }}>
+              <Stack direction="row" alignItems="center" spacing={2} mb={3}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 3,
+                    bgcolor: "rgba(139, 92, 246, 0.2)",
+                    color: "#8b5cf6",
+                  }}
+                >
+                  <EventIcon fontSize="large" />
+                </Box>
+                <Box>
+                  <Typography variant="h5" fontWeight="800" color="#fff">
+                    New Session
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Plan your next seminar
+                  </Typography>
+                </Box>
+              </Stack>
 
-      {/* RIGHT: BOOKINGS LIST */}
-      <Grid item xs={12} md={8}>
-        <TableContainer
-          component={Paper}
-          sx={{ borderRadius: 4, boxShadow: 3, overflow: "hidden" }}
-        >
-          <Box
-            sx={{
-              p: 2,
-              bgcolor: "background.paper", // Matches Dark Theme
-              borderBottom: "1px solid rgba(255,255,255,0.05)",
-            }}
-          >
-            <Typography
-              variant="subtitle1"
-              fontWeight="bold"
-              color="text.secondary"
+              {/* Holographic Info Box */}
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  mb: 4,
+                  bgcolor: "rgba(6, 182, 212, 0.05)",
+                  border: "1px solid rgba(6, 182, 212, 0.2)",
+                  borderRadius: 3,
+                }}
+              >
+                <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                  <AcIcon sx={{ color: "#22d3ee", fontSize: 20 }} />
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      color: "#22d3ee",
+                      fontWeight: "bold",
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    AUTO-COOLING ACTIVE
+                  </Typography>
+                </Stack>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ opacity: 0.8 }}
+                >
+                  System will trigger AC{" "}
+                  <span style={{ color: "#fff", fontWeight: "bold" }}>
+                    30 mins
+                  </span>{" "}
+                  prior to start time.
+                </Typography>
+              </Paper>
+
+              <TextField
+                fullWidth
+                type="datetime-local"
+                label="Start Time"
+                InputLabelProps={{ shrink: true }}
+                value={bookingTime}
+                onChange={(e) => setBookingTime(e.target.value)}
+                sx={{ mb: 3 }}
+              />
+
+              <Button
+                fullWidth
+                variant="contained"
+                size="large"
+                startIcon={<AddIcon />}
+                onClick={handleAddBooking}
+                disabled={!bookingTime}
+                sx={{
+                  py: 1.5,
+                  fontSize: "1rem",
+                  background:
+                    "linear-gradient(45deg, #7c3aed 30%, #3b82f6 90%)",
+                  boxShadow: "0 4px 14px 0 rgba(124, 58, 237, 0.5)",
+                }}
+              >
+                Confirm Schedule
+              </Button>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* --- RIGHT: BOOKINGS TABLE --- */}
+        <Grid item xs={12} md={8}>
+          <TableContainer component={Paper} sx={{ ...glassStyle }}>
+            {/* Table Header Area */}
+            <Box
+              sx={{ p: 3, borderBottom: "1px solid rgba(255,255,255,0.05)" }}
             >
-              UPCOMING SESSIONS
-            </Typography>
-          </Box>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>
-                  <Typography
-                    variant="caption"
-                    fontWeight="bold"
-                    color="text.secondary"
-                  >
-                    DATE
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography
-                    variant="caption"
-                    fontWeight="bold"
-                    color="text.secondary"
-                  >
-                    SEMINAR TIME
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Stack direction="row" alignItems="center" spacing={0.5}>
-                    <AcIcon fontSize="inherit" color="info" />
+              <Typography variant="h6" fontWeight="bold" color="#fff">
+                Upcoming Sessions
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Manage your scheduled events below
+              </Typography>
+            </Box>
+
+            <Table>
+              <TableHead sx={{ bgcolor: "rgba(0,0,0,0.2)" }}>
+                <TableRow>
+                  <TableCell>
                     <Typography
                       variant="caption"
                       fontWeight="bold"
-                      color="info.main"
+                      color="text.secondary"
                     >
-                      AC START
+                      DATE
                     </Typography>
-                  </Stack>
-                </TableCell>
-                <TableCell align="right">
-                  <Typography
-                    variant="caption"
-                    fontWeight="bold"
-                    color="text.secondary"
-                  >
-                    ACTION
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {Object.entries(allBookings).length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} align="center" sx={{ py: 5 }}>
-                    <Typography color="text.disabled">
-                      No upcoming seminars scheduled
+                  </TableCell>
+                  <TableCell>
+                    <Typography
+                      variant="caption"
+                      fontWeight="bold"
+                      color="text.secondary"
+                    >
+                      TIME SLOT
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <AcIcon sx={{ fontSize: 14, color: "#22d3ee" }} />
+                      <Typography
+                        variant="caption"
+                        fontWeight="bold"
+                        sx={{ color: "#22d3ee" }}
+                      >
+                        AC TRIGGER
+                      </Typography>
+                    </Stack>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography
+                      variant="caption"
+                      fontWeight="bold"
+                      color="text.secondary"
+                    >
+                      ACTION
                     </Typography>
                   </TableCell>
                 </TableRow>
-              ) : (
-                Object.entries(allBookings).map(([key, booking]) => (
-                  <TableRow key={key} hover>
-                    {/* Date Column */}
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        fontWeight="bold"
-                        color="text.primary"
-                      >
-                        {formatDate(booking.start_time)}
+              </TableHead>
+              <TableBody>
+                {Object.entries(allBookings).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
+                      <Typography variant="body1" color="text.disabled">
+                        No upcoming seminars found.
                       </Typography>
                     </TableCell>
-
-                    {/* Seminar Time Column */}
-                    <TableCell>
-                      <Chip
-                        icon={<TimeIcon fontSize="small" />}
-                        label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
-                        variant="outlined"
-                        size="small"
-                      />
-                    </TableCell>
-
-                    {/* AC Trigger Time Column */}
-                    <TableCell>
-                      <Chip
-                        label={formatTime(
-                          booking.ac_start_time ||
-                            booking.start_time - 30 * 60000,
-                        )}
-                        color="info"
-                        size="small"
-                        sx={{ fontWeight: "bold" }}
-                      />
-                    </TableCell>
-
-                    {/* Delete Action */}
-                    <TableCell align="right">
-                      <IconButton
-                        color="error"
-                        onClick={() => handleDeleteBooking(key)}
-                        size="small"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                ) : (
+                  Object.entries(allBookings).map(([key, booking]) => (
+                    <TableRow
+                      key={key}
+                      sx={{
+                        "&:hover": { bgcolor: "rgba(255,255,255,0.03)" },
+                        borderBottom: "1px solid rgba(255,255,255,0.05)",
+                      }}
+                    >
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          fontWeight="600"
+                          color="#f1f5f9"
+                        >
+                          {formatDate(booking.start_time)}
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell>
+                        <Chip
+                          icon={
+                            <TimeIcon sx={{ fontSize: "14px !important" }} />
+                          }
+                          label={`${formatTime(booking.start_time)} - ${formatTime(booking.end_time)}`}
+                          variant="outlined"
+                          size="small"
+                          sx={{
+                            borderColor: "rgba(255,255,255,0.1)",
+                            color: "#cbd5e1",
+                          }}
+                        />
+                      </TableCell>
+
+                      <TableCell>
+                        <Chip
+                          label={formatTime(
+                            booking.ac_start_time ||
+                              booking.start_time - 30 * 60000,
+                          )}
+                          size="small"
+                          sx={{
+                            bgcolor: "rgba(6, 182, 212, 0.1)",
+                            color: "#22d3ee",
+                            fontWeight: "bold",
+                            border: "1px solid rgba(6, 182, 212, 0.2)",
+                          }}
+                        />
+                      </TableCell>
+
+                      <TableCell align="right">
+                        <IconButton
+                          onClick={() => handleDeleteBooking(key)}
+                          size="small"
+                          sx={{
+                            color: "#ef4444",
+                            "&:hover": { bgcolor: "rgba(239, 68, 68, 0.1)" },
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Grid>
       </Grid>
-    </Grid>
+    </Fade>
   );
 };
 
