@@ -2,8 +2,8 @@
 #define SECRETS_H
 
 // WiFi Credentials
-#define WIFI_SSID "KMPG  4Floor-4G"
-#define WIFI_PASSWORD "Beinspired@8"
+#define WIFI_SSID "Muhammed Yaseen's A06"
+#define WIFI_PASSWORD "blablabla"
 
 // Firebase Credentials
 // URL: The one starting with https:// and ending in .com (NO trailing slash)

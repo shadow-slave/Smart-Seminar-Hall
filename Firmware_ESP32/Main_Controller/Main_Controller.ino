@@ -155,7 +155,7 @@ void loop() {
     // 6. OTHER DEVICES
     if (personCount > 0 && (millis() - lastSprayTime > sprayInterval)) {
       Serial.println("🌸 Spraying Air Freshener!");
-      sprayServo.write(180); delay(1000); sprayServo.write(0);
+      sprayServo.write(120); delay(1000); sprayServo.write(0);
       lastSprayTime = millis();
     }
 

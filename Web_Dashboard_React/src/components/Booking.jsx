@@ -37,6 +37,28 @@ const glassStyle = {
   borderRadius: 4,
   boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.2)",
 };
+// --- 1. TELEGRAM BOT CONFIGURATION ---
+
+
+// --- 2. HELPER FUNCTION: Send Notification ---
+const sendTelegramMessage = async (message) => {
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message,
+        parse_mode: "Markdown", // Allows bold/italic text
+      }),
+    });
+    console.log("✅ Telegram Notification Sent");
+  } catch (error) {
+    console.error("❌ Telegram Error:", error);
+  }
+};
 
 const Bookings = () => {
   const [bookingTime, setBookingTime] = useState("");
@@ -93,19 +115,33 @@ const Bookings = () => {
       booking_end: endTimestamp,
       booking_active: true,
     });
+    // SEND TELEGRAM NOTIFICATION
+    const msg = `
+    📅 *New Seminar Scheduled!*
 
+    ⏰ *Time:* ${startDate.toLocaleString()}
+    ❄️ *AC Auto-Start:* ${acStartDate.toLocaleTimeString()}
+    📍 *Status:* Confirmed
+      `;
+    sendTelegramMessage(msg);
     setBookingTime("");
     alert("✅ Schedule Confirmed! AC will start 30 mins early.");
   };
 
-  const handleDeleteBooking = (id) => {
-    if (window.confirm("Are you sure you want to cancel this seminar?")) {
+  const handleDeleteBooking = (id, booking) => {
+    if (window.confirm("Cancel this seminar?")) {
       remove(ref(database, `seminar_hall/all_bookings/${id}`));
       update(ref(database, "seminar_hall/live_data"), {
         booking_active: false,
         booking_start: 0,
         booking_end: 0,
       });
+
+      // Nice detailed message
+      const time = new Date(booking.start_time).toLocaleString();
+      sendTelegramMessage(
+        `❌ *Seminar Cancelled*\n\n📅 Original Time: ${time}\n⚠️ AC Trigger Disabled.`,
+      );
     }
   };
 
@@ -356,7 +392,7 @@ const Bookings = () => {
 
                       <TableCell align="right">
                         <IconButton
-                          onClick={() => handleDeleteBooking(key)}
+                          onClick={() => handleDeleteBooking(key, booking)}
                           size="small"
                           sx={{
                             color: "#ef4444",
